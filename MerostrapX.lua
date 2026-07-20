@@ -75743,6 +75743,23 @@ return LPH_NO_VIRTUALIZE(function()
 	end
 
 	---Update player proximity.
+	local function clearPlayerProximity()
+		for player, removeNotification in next, Monitoring.seen do
+			removeNotification()
+			Monitoring.seen[player] = nil
+		end
+	end
+
+	---@param player Player
+	---@return boolean
+	local function isVoidwalker(player)
+		local backpack = player:FindFirstChild("Backpack")
+		local character = player.Character
+
+		return backpack and backpack:FindFirstChild("Talent:Voidwalker Contract") ~= nil
+			or character and character:FindFirstChild("Talent:Voidwalker Contract") ~= nil
+	end
+
 	local function updatePlayerProximity()
 		local proximityRange = Configuration.expectOptionValue("PlayerProximityRange") or 350
 		local playersInRange = Finder.gpir(proximityRange)
@@ -75755,8 +75772,9 @@ return LPH_NO_VIRTUALIZE(function()
 			return
 		end
 
-		local backpack = localPlayer:FindFirstChild("Backpack")
-		if not backpack then
+		local localCharacter = localPlayer.Character
+		local localRootPart = localCharacter and localCharacter:FindFirstChild("HumanoidRootPart")
+		if not localRootPart then
 			return
 		end
 
@@ -75781,13 +75799,21 @@ return LPH_NO_VIRTUALIZE(function()
 
 			if
 				Configuration.expectToggleValue("PlayerProximityVW")
-				and not backpack:FindFirstChild("Talent:Voidwalker Contract")
+				and not isVoidwalker(player)
 			then
 				continue
 			end
 
+			local character = player.Character
+			local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+			if not rootPart then
+				continue
+			end
+
+			local distance = (rootPart.Position - localRootPart.Position).Magnitude
+
 			Monitoring.seen[player] =
-				Logger.mnnotify("%s entered your proximity radius of %i studs.", fetchName(player), proximityRange)
+				Logger.mnnotify("%s is %.0f studs away (proximity range: %i).", fetchName(player), distance, proximityRange)
 
 			if Configuration.expectToggleValue("PlayerProximityBeep") then
 				beepSound.SoundId = "rbxassetid://100849623977896"
@@ -75855,6 +75881,8 @@ return LPH_NO_VIRTUALIZE(function()
 
 		if Configuration.expectToggleValue("PlayerProximity") then
 			updatePlayerProximity()
+		elseif next(Monitoring.seen) ~= nil then
+			clearPlayerProximity()
 		end
 	end
 
@@ -75875,6 +75903,7 @@ return LPH_NO_VIRTUALIZE(function()
 		spectateMaid:clean()
 		plwMaid:clean()
 		showHiddenMap:restore()
+		clearPlayerProximity()
 
 		-- Get leaderboard data.
 		local refreshLeaderboard = LeaderboardClient.glrf()
@@ -84606,17 +84635,23 @@ function GameTab.initPlayerMonitoringSection(groupbox)
 		Default = false,
 	})
 
-	groupbox:AddToggle("PlayerProximity", {
-		Text = "Player Proximity Notifications",
+	local proximityToggle = groupbox:AddToggle("PlayerProximity", {
+		Text = "Player Proximity",
 		Tooltip = "When other players are within specified distance, notify the user.",
 		Default = false,
+	})
+
+	proximityToggle:AddKeyPicker("PlayerProximityKeybind", {
+		Default = "N/A",
+		SyncToggleState = true,
+		Text = "Player Proximity",
 	})
 
 	local ppDepBox = groupbox:AddDependencyBox()
 
 	ppDepBox:AddSlider("PlayerProximityRange", {
 		Text = "Player Proximity Distance",
-		Default = 1000,
+		Default = 350,
 		Min = 50,
 		Max = 2500,
 		Suffix = "studs",
