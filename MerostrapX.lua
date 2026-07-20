@@ -2508,9 +2508,9 @@ return LPH_NO_VIRTUALIZE(function()
 
 				local State = KeyPicker:GetState()
 
-				ContainerLabel.Text = string.format("[%s] %s (%s)", KeyPicker.Value, Info.Text, KeyPicker.Mode)
+				ContainerLabel.Text = string.format("%s  [%s]  %s", Info.Text, KeyPicker.Value, KeyPicker.Mode)
 
-				ContainerLabel.Visible = true
+				ContainerLabel.Visible = State
 				ContainerLabel.TextColor3 = State and Library.AccentColor or Library.FontColor
 
 				Library.RegistryMap[ContainerLabel].Properties.TextColor3 = State and "AccentColor" or "FontColor"
@@ -4530,11 +4530,11 @@ return LPH_NO_VIRTUALIZE(function()
 		Library:RefreshInfoLogger()
 
 		local KeybindOuter = Library:Create("Frame", {
-			AnchorPoint = Vector2.new(0, 0.5),
+			AnchorPoint = Vector2.new(0, 0),
 			BorderColor3 = Color3.new(0, 0, 0),
-			Position = UDim2.new(0, 10, 0.5, 0),
+			Position = UDim2.new(0, 10, 0, 10),
 			Size = UDim2.new(0, 210, 0, 20),
-			Visible = false,
+			Visible = true,
 			ZIndex = 100,
 			Parent = ScreenGui,
 		})
@@ -4571,7 +4571,7 @@ return LPH_NO_VIRTUALIZE(function()
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextSize = 14,
 			TextColor3 = Library.AccentColor,
-			Text = "Keybind List",
+			Text = "Active Features",
 			ZIndex = 104,
 			Parent = KeybindInner,
 		})
@@ -81881,13 +81881,13 @@ function LycorisTab.initUISettingsSection(groupbox)
 
 	menuBindLabel:AddKeyPicker("MenuKeybind", { Default = "LeftAlt", NoUI = true, Text = "Menu Keybind" })
 
-	local keybindFrameLabel = groupbox:AddLabel("Keybind List Bind")
+	local keybindFrameLabel = groupbox:AddLabel("Active Features Overlay Bind")
 
 	keybindFrameLabel:AddKeyPicker("KeybindList", {
-		Default = "N/A",
-		Mode = "Off",
+		Default = "Home",
+		Mode = "Toggle",
 		NoUI = true,
-		Text = "Keybind List",
+		Text = "Active Features Overlay",
 		Callback = function(Value)
 			Library.KeybindFrame.Visible = Value
 		end,
@@ -85059,13 +85059,13 @@ end
 ---@param groupbox table
 function CombatTab.initAutoDefenseSection(groupbox)
 	local autoDefenseToggle = groupbox:AddToggle("EnableAutoDefense", {
-		Text = "Enable Auto Defense",
+		Text = "Auto Parry",
 		Default = false,
 	})
 
 	autoDefenseToggle:AddKeyPicker(
 		"EnableAutoDefenseKeybind",
-		{ Default = "N/A", SyncToggleState = true, Text = "Auto Defense" }
+		{ Default = "N/A", SyncToggleState = true, Text = "Auto Parry" }
 	)
 
 	local autoDefenseDepBox = groupbox:AddDependencyBox()
