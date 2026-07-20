@@ -72208,6 +72208,8 @@ local Library = require("GUI/Library")
 ---@field maid Maid This maid is cleaned up after every new animation track. Safe to use for on-animation-track setup.
 ---@field sct table<AnimationTrack, boolean> Tracks that need to have their speed changed.
 ---@field tsc table<AnimationTrack, number> Tracks that are saving their last speed.
+---@field apBursts table<string, { started: number, count: number }> Recent incoming animation bursts by asset ID.
+---@field apWarnings table<string, number> Last AP-breaker warning time by reason.
 local AnimatorDefender = setmetatable({}, { __index = Defender })
 AnimatorDefender.__index = AnimatorDefender
 AnimatorDefender.__type = "Animation"
@@ -72220,6 +72222,27 @@ local replicatedStorage = game:GetService("ReplicatedStorage")
 local MAX_REPEAT_TIME = 5.0
 local HISTORY_STEPS = 5.0
 local PREDICT_FACING_DELTA = 3
+local MAX_INCOMING_ANIMATION_SPEED = 50
+local AP_BURST_WINDOW = 0.25
+local AP_BURST_LIMIT = 8
+local AP_WARNING_COOLDOWN = 2.0
+
+---Log an AP-breaker rejection without allowing animation spam to flood the console.
+---@param self AnimatorDefender
+---@param key string
+---@param message string
+---@param ... any
+local function warnAPBreaker(self, key, message, ...)
+	local now = os.clock()
+	local lastWarning = self.apWarnings[key]
+
+	if lastWarning and now - lastWarning < AP_WARNING_COOLDOWN then
+		return
+	end
+
+	self.apWarnings[key] = now
+	Logger.warn(message, ...)
+end
 
 ---Is animation stopped? Made into a function for de-duplication.
 ---@param self AnimatorDefender
@@ -72543,33 +72566,76 @@ end)
 ---@return boolean
 function AnimatorDefender:pvalidate(track)
 	if Configuration.expectToggleValue("ValidateIncomingAnimations") then
+		local animation = track.Animation
+		if not animation then
+			return false
+		end
+
 		if track.Priority == Enum.AnimationPriority.Core then
 			return false
 		end
 
 		local isComingFromPlayer = players:GetPlayerFromCharacter(self.entity)
+		if not isComingFromPlayer then
+			return true
+		end
 
-		if isComingFromPlayer and track.WeightTarget <= 0.05 then
+		if track.WeightTarget <= 0.05 then
 			return false
 		end
 
-		if isComingFromPlayer and self.manimations[track.Animation.AnimationId] ~= nil then
-			Logger.warn(
+		local aid = tostring(animation.AnimationId)
+		local mobAnimation = self.manimations[aid]
+
+		if mobAnimation then
+			warnAPBreaker(
+				self,
+				"mob:" .. aid,
 				"(%s) Animation %s is being skipped from player %s because they're likely AP breaking.",
-				self.manimations[track.Animation.AnimationId].Name,
-				track.Animation.AnimationId,
+				mobAnimation.Name,
+				aid,
 				self.entity.Name
 			)
 
 			return false
 		end
 
-		local aid = tostring(track.Animation.AnimationId)
+		local speed = track.Speed
+		local invalidSpeed = speed ~= speed or speed == math.huge or speed == -math.huge
 
-		-- Block abnormal animation speeds to prevent AP breaker spam.
-		if track.Speed >= 1000 then
-			Logger.warn("(%s) Blocked potential AP breaker from %s (speed: %.0fx)", aid, self.entity.Name, track.Speed)
-			return
+		if invalidSpeed or math.abs(speed) > MAX_INCOMING_ANIMATION_SPEED then
+			warnAPBreaker(
+				self,
+				"speed:" .. aid,
+				"(%s) Blocked potential AP breaker from %s (speed: %s).",
+				aid,
+				self.entity.Name,
+				tostring(speed)
+			)
+			return false
+		end
+
+		local now = os.clock()
+		local burst = self.apBursts[aid]
+
+		if not burst or now - burst.started > AP_BURST_WINDOW then
+			burst = { started = now, count = 0 }
+			self.apBursts[aid] = burst
+		end
+
+		burst.count = burst.count + 1
+
+		if burst.count > AP_BURST_LIMIT then
+			warnAPBreaker(
+				self,
+				"burst:" .. aid,
+				"(%s) Blocked potential AP breaker replay burst from %s (%i plays in %.2fs).",
+				aid,
+				self.entity.Name,
+				burst.count,
+				AP_BURST_WINDOW
+			)
+			return false
 		end
 	end
 
@@ -72706,6 +72772,8 @@ function AnimatorDefender.new(animator, manimations)
 	self.sct = {}
 	self.tsc = {}
 	self.multiplier = {}
+	self.apBursts = {}
+	self.apWarnings = {}
 
 	self.maid:mark(animationPlayed:connect(
 		"AnimatorDefender_OnAnimationPlayed",
