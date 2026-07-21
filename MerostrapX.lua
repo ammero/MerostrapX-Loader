@@ -8303,6 +8303,35 @@ local Latency = {}
 -- Services.
 local stats = game:GetService("Stats")
 
+-- Data Ping can briefly be unavailable during startup and can contain isolated
+-- spikes. Keep a small moving average so defense timings adapt without jitter.
+local DEFAULT_RTT = 0.1
+local MAX_RTT = 1.5
+local SAMPLE_INTERVAL = 0.1
+local SMOOTHING_FACTOR = 0.25
+
+local smoothedRtt = nil
+local lastSampleTimestamp = 0
+
+---Read the current Data Ping value as round-trip seconds.
+---@return number?
+local function readRtt()
+	local network = stats:FindFirstChild("Network")
+	local serverStatsItem = network and network:FindFirstChild("ServerStatsItem")
+	local dataPingItem = serverStatsItem and serverStatsItem:FindFirstChild("Data Ping")
+
+	if not dataPingItem then
+		return nil
+	end
+
+	local success, milliseconds = pcall(dataPingItem.GetValue, dataPingItem)
+	if not success or type(milliseconds) ~= "number" then
+		return nil
+	end
+
+	return math.clamp(milliseconds / 1000, 0, MAX_RTT)
+end
+
 ---@note: Perhaps one day, we can get better approximations for these.
 --- These used to rely on GetNetworkPing which we assumed would be sending or atleast receiving delay.
 --- That is incorrect, it is RakNet ping thereby being RTT.
@@ -8326,22 +8355,26 @@ end
 ---@todo: For every usage, the sending delay needs to be continously updated. The receiving one must be calculated once at initial send for AP ping compensation.
 ---@return number
 function Latency.rtt()
-	local network = stats:FindFirstChild("Network")
-	if not network then
-		return
+	local now = os.clock()
+
+	if smoothedRtt ~= nil and now - lastSampleTimestamp < SAMPLE_INTERVAL then
+		return smoothedRtt
 	end
 
-	local serverStatsItem = network:FindFirstChild("ServerStatsItem")
-	if not serverStatsItem then
-		return
+	lastSampleTimestamp = now
+
+	local sample = readRtt()
+	if sample == nil then
+		return smoothedRtt or DEFAULT_RTT
 	end
 
-	local dataPingItem = serverStatsItem:FindFirstChild("Data Ping")
-	if not dataPingItem then
-		return
+	if smoothedRtt == nil then
+		smoothedRtt = sample
+	else
+		smoothedRtt = smoothedRtt + ((sample - smoothedRtt) * SMOOTHING_FACTOR)
 	end
 
-	return (dataPingItem:GetValue() / 1000)
+	return smoothedRtt
 end
 
 -- Return Latency module.
