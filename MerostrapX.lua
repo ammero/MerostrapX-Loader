@@ -156,23 +156,6 @@ local ModuleManager = require("Game/Timings/ModuleManager")
 ---@module Utility.CoreGuiManager
 local CoreGuiManager = require("Utility/CoreGuiManager")
 
----@module Utility.LoadingScreen
--- Keep a direct require visible to luabundler while loading it defensively at runtime.
-if false then
-	require("Utility/LoadingScreen")
-end
-local loadingScreenLoaded, LoadingScreen = pcall(require, "Utility/LoadingScreen")
-
--- The loading UI is cosmetic and must never prevent the script from starting on
--- executors that do not support one of the UI APIs it uses.
-if not loadingScreenLoaded then
-	LoadingScreen = {
-		show = function() end,
-		update = function() end,
-		hide = function() end,
-	}
-end
-
 ---@module Game.ServerHop
 local ServerHop = require("Game/ServerHop")
 
@@ -208,11 +191,6 @@ function Lycoris.init()
 		task.wait()
 	until game:IsLoaded()
 
-	-- CoreGui is not consistently writable before the game has finished loading.
-	CoreGuiManager.set()
-	LoadingScreen.show()
-	LoadingScreen.update("Finding the local player...", 0.18)
-
 	repeat
 		localPlayer = playersService.LocalPlayer
 		if localPlayer == nil then
@@ -233,7 +211,6 @@ function Lycoris.init()
 	end
 
 	if game.PlaceId == CHIME_LOBBY_PLACE_ID then
-		LoadingScreen.hide()
 		return Logger.warn("Script has initialized in the Chime lobby.")
 	end
 
@@ -245,7 +222,8 @@ function Lycoris.init()
 		Hooking.init()
 	end
 
-	LoadingScreen.update("Loading saved data...", 0.3)
+	CoreGuiManager.set()
+
 	PersistentData.init()
 
 	if game.PlaceId == LOBBY_PLACE_ID then
@@ -255,13 +233,11 @@ function Lycoris.init()
 	if game.PlaceId == LOBBY_PLACE_ID then
 		-- Handle lobby state for server hopping. This takes priority over everything else.
 		if PersistentData.get("shslot") then
-			LoadingScreen.hide()
 			return ServerHop.lobby()
 		end
 
 		-- Handle lobby state for wiping. This takes priority over every farm.
 		if PersistentData.get("wdata") then
-			LoadingScreen.hide()
 			return Wipe.lobby()
 		end
 	end
@@ -282,31 +258,24 @@ function Lycoris.init()
 	end
 
 	if game.PlaceId == LOBBY_PLACE_ID then
-		LoadingScreen.hide()
 		return
 	end
 
 	QueuedBlocking.init()
 
-	LoadingScreen.update("Loading combat data...", 0.48)
 	SaveManager.init()
 
 	ModuleManager.refresh()
 
 	ControlModule.init()
 
-	LoadingScreen.update("Starting features...", 0.68)
 	Features.init()
 
-	LoadingScreen.update("Building the menu...", 0.82)
 	Menu.init()
 
-	LoadingScreen.update("Starting player tracking...", 0.94)
 	PlayerScanning.init()
 
 	StateListener.init()
-
-	LoadingScreen.hide()
 
 	Logger.notify("Script has been initialized in %ims.", (os.clock() - startTimestamp) * 1000)
 
@@ -11947,149 +11916,6 @@ end
 
 -- Return Wipe module.
 return Wipe
-
-end)
-__bundle_register("Utility/LoadingScreen", function(require, _LOADED, __bundle_register, __bundle_modules)
----@module Utility.LoadingScreen
-local LoadingScreen = {}
-
----@module Utility.CoreGuiManager
-local CoreGuiManager = require("Utility/CoreGuiManager")
-
-local tweenService = game:GetService("TweenService")
-local protectGui = protectgui or (syn and syn.protect_gui) or function() end
-
-local screenGui = CoreGuiManager.imark(Instance.new("ScreenGui"))
-protectGui(screenGui)
-screenGui.Name = "MerostrapXLoadingScreen"
-screenGui.DisplayOrder = 10000
-screenGui.IgnoreGuiInset = true
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.Enabled = false
-
-local background = Instance.new("Frame")
-background.Name = "Background"
-background.Size = UDim2.fromScale(1, 1)
-background.BackgroundColor3 = Color3.fromRGB(10, 10, 13)
-background.BorderSizePixel = 0
-background.Parent = screenGui
-
-local content = Instance.new("CanvasGroup")
-content.Name = "Content"
-content.AnchorPoint = Vector2.new(0.5, 0.5)
-content.Position = UDim2.fromScale(0.5, 0.5)
-content.Size = UDim2.fromOffset(420, 138)
-content.BackgroundTransparency = 1
-content.Parent = background
-
-local title = Instance.new("TextLabel")
-title.Name = "Title"
-title.Size = UDim2.new(1, 0, 0, 44)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.Text = "MEROSTRAPX"
-title.TextColor3 = Color3.fromRGB(245, 245, 247)
-title.TextSize = 30
-title.Parent = content
-
-local subtitle = Instance.new("TextLabel")
-subtitle.Name = "Status"
-subtitle.Position = UDim2.fromOffset(0, 51)
-subtitle.Size = UDim2.new(1, 0, 0, 24)
-subtitle.BackgroundTransparency = 1
-subtitle.Font = Enum.Font.Gotham
-subtitle.Text = "Starting..."
-subtitle.TextColor3 = Color3.fromRGB(158, 158, 168)
-subtitle.TextSize = 14
-subtitle.Parent = content
-
-local track = Instance.new("Frame")
-track.Name = "ProgressTrack"
-track.Position = UDim2.fromOffset(35, 92)
-track.Size = UDim2.new(1, -70, 0, 4)
-track.BackgroundColor3 = Color3.fromRGB(42, 42, 50)
-track.BorderSizePixel = 0
-track.Parent = content
-
-local trackCorner = Instance.new("UICorner")
-trackCorner.CornerRadius = UDim.new(1, 0)
-trackCorner.Parent = track
-
-local progress = Instance.new("Frame")
-progress.Name = "Progress"
-progress.Size = UDim2.fromScale(0, 1)
-progress.BackgroundColor3 = Color3.fromRGB(220, 52, 78)
-progress.BorderSizePixel = 0
-progress.Parent = track
-
-local progressCorner = Instance.new("UICorner")
-progressCorner.CornerRadius = UDim.new(1, 0)
-progressCorner.Parent = progress
-
-local percentage = Instance.new("TextLabel")
-percentage.Name = "Percentage"
-percentage.Position = UDim2.fromOffset(0, 106)
-percentage.Size = UDim2.new(1, 0, 0, 20)
-percentage.BackgroundTransparency = 1
-percentage.Font = Enum.Font.GothamMedium
-percentage.Text = "0%"
-percentage.TextColor3 = Color3.fromRGB(220, 52, 78)
-percentage.TextSize = 12
-percentage.Parent = content
-
-local activeTween = nil
-
-function LoadingScreen.show()
-	activeTween = nil
-	progress.Size = UDim2.fromScale(0, 1)
-	percentage.Text = "0%"
-	subtitle.Text = "Starting..."
-	background.BackgroundTransparency = 0
-	content.GroupTransparency = 0
-	screenGui.Enabled = true
-end
-
----@param text string
----@param amount number
-function LoadingScreen.update(text, amount)
-	if not screenGui.Enabled then
-		return
-	end
-
-	amount = math.clamp(amount, 0, 1)
-	subtitle.Text = text
-	percentage.Text = string.format("%d%%", math.floor(amount * 100 + 0.5))
-
-	if activeTween then
-		activeTween:Cancel()
-	end
-
-	activeTween = tweenService:Create(
-		progress,
-		TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{ Size = UDim2.fromScale(amount, 1) }
-	)
-	activeTween:Play()
-end
-
-function LoadingScreen.hide()
-	if not screenGui.Enabled then
-		return
-	end
-
-	LoadingScreen.update("Ready", 1)
-	task.wait(0.2)
-
-	local backgroundTween = tweenService:Create(background, TweenInfo.new(0.3), { BackgroundTransparency = 1 })
-	local contentTween = tweenService:Create(content, TweenInfo.new(0.25), { GroupTransparency = 1 })
-	backgroundTween:Play()
-	contentTween:Play()
-	backgroundTween.Completed:Wait()
-	screenGui.Enabled = false
-end
-
-return LoadingScreen
 
 end)
 __bundle_register("Game/Timings/ModuleManager", function(require, _LOADED, __bundle_register, __bundle_modules)
