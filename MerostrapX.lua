@@ -2536,17 +2536,14 @@ return LPH_NO_VIRTUALIZE(function()
 				elseif KeyPicker.Mode == "Off" then
 					return false
 				elseif KeyPicker.Mode == "Hold" then
-					if KeyPicker.Value == "None" then
-						return false
-					end
-
 					local Key = KeyPicker.Value
 
 					if Key == "MB1" or Key == "MB2" then
 						return Key == "MB1" and InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
 							or Key == "MB2" and InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
 					else
-						return InputService:IsKeyDown(Enum.KeyCode[KeyPicker.Value])
+						local keyCode = Enum.KeyCode[Key]
+						return keyCode ~= nil and InputService:IsKeyDown(keyCode)
 					end
 				else
 					return KeyPicker.Toggled
@@ -81826,7 +81823,7 @@ function LycorisTab.initUISettingsSection(groupbox)
 
 	local menuBindLabel = groupbox:AddLabel("Menu Bind")
 
-	menuBindLabel:AddKeyPicker("MenuKeybind", { Default = "LeftAlt", NoUI = true, Text = "Menu Keybind" })
+	menuBindLabel:AddKeyPicker("MenuKeybind", { Default = "Equals", NoUI = true, Text = "Menu Keybind" })
 
 	local keybindFrameLabel = groupbox:AddLabel("Keybind List Bind")
 
