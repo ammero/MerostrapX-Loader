@@ -2336,7 +2336,8 @@ return LPH_NO_VIRTUALIZE(function()
 			local KeyPicker = {
 				Value = Info.Default,
 				Toggled = false,
-				Mode = Info.Mode or "Toggle", -- Always, Toggle, Hold
+				Mode = Info.LockedMode or Info.Mode or "Toggle", -- Always, Toggle, Hold
+				LockedMode = Info.LockedMode,
 				Type = "KeyPicker",
 				Callback = Info.Callback or function(Value) end,
 				ChangedCallback = Info.ChangedCallback or function(New) end,
@@ -2344,8 +2345,7 @@ return LPH_NO_VIRTUALIZE(function()
 			}
 
 			if KeyPicker.SyncToggleState then
-				Info.Modes = { "Toggle", "Hold" }
-				Info.Mode = "Toggle"
+				Info.Modes = KeyPicker.LockedMode and { KeyPicker.LockedMode } or { "Toggle", "Hold" }
 			end
 
 			local PickOuter = Library:Create("Frame", {
@@ -2508,9 +2508,9 @@ return LPH_NO_VIRTUALIZE(function()
 
 				local State = KeyPicker:GetState()
 
-				ContainerLabel.Text = string.format("[%s] %s (%s)", KeyPicker.Value, Info.Text, KeyPicker.Mode)
+				ContainerLabel.Text = string.format("%s  [%s]", Info.Text, KeyPicker.Value)
 
-				ContainerLabel.Visible = true
+				ContainerLabel.Visible = State
 				ContainerLabel.TextColor3 = State and Library.AccentColor or Library.FontColor
 
 				Library.RegistryMap[ContainerLabel].Properties.TextColor3 = State and "AccentColor" or "FontColor"
@@ -2553,11 +2553,25 @@ return LPH_NO_VIRTUALIZE(function()
 				end
 			end
 
+			local function inputMatchesKey(Input)
+				local Key = KeyPicker.Value
+
+				if Key == "MB1" or Key == "MB2" then
+					return Key == "MB1" and Input.UserInputType == Enum.UserInputType.MouseButton1
+						or Key == "MB2" and Input.UserInputType == Enum.UserInputType.MouseButton2
+				end
+
+				return Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode.Name == Key
+			end
+
 			function KeyPicker:SetValue(Data)
 				local Key, Mode = Data[1], Data[2]
+				Mode = KeyPicker.LockedMode or Mode
 				DisplayLabel.Text = Key
 				KeyPicker.Value = Key
-				ModeButtons[Mode]:Select()
+				if ModeButtons[Mode] then
+					ModeButtons[Mode]:Select()
+				end
 				KeyPicker:Update()
 			end
 
@@ -2640,6 +2654,7 @@ return LPH_NO_VIRTUALIZE(function()
 					end)
 				elseif
 					Input.UserInputType == Enum.UserInputType.MouseButton2 and not Library:MouseIsOverOpenedFrame()
+					and not KeyPicker.LockedMode
 				then
 					ModeSelectOuter.Position = UDim2.fromOffset(
 						ToggleLabel.AbsolutePosition.X + ToggleLabel.AbsoluteSize.X + 4,
@@ -2656,22 +2671,17 @@ return LPH_NO_VIRTUALIZE(function()
 
 				if not Picking then
 					if KeyPicker.Mode == "Toggle" then
-						local Key = KeyPicker.Value
-
-						if Key == "MB1" or Key == "MB2" then
-							if
-								Key == "MB1" and Input.UserInputType == Enum.UserInputType.MouseButton1
-								or Key == "MB2" and Input.UserInputType == Enum.UserInputType.MouseButton2
-							then
-								KeyPicker.Toggled = not KeyPicker.Toggled
-								KeyPicker:DoClick()
-							end
-						elseif Input.UserInputType == Enum.UserInputType.Keyboard then
-							if Input.KeyCode.Name == Key then
-								KeyPicker.Toggled = not KeyPicker.Toggled
-								KeyPicker:DoClick()
-							end
+						if inputMatchesKey(Input) then
+							KeyPicker.Toggled = not KeyPicker.Toggled
+							KeyPicker:DoClick()
 						end
+					elseif
+						KeyPicker.Mode == "Hold"
+						and KeyPicker.SyncToggleState
+						and ParentObj.Type == "Toggle"
+						and inputMatchesKey(Input)
+					then
+						ParentObj:SetValue(true)
 					end
 
 					KeyPicker:Update()
@@ -2691,12 +2701,17 @@ return LPH_NO_VIRTUALIZE(function()
 				end
 			end))
 
-			Library:GiveSignal(InputService.InputEnded:Connect(function(Input, ProcessedByGame)
-				if ProcessedByGame then
-					return
-				end
-
+			Library:GiveSignal(InputService.InputEnded:Connect(function(Input)
 				if not Picking then
+					if
+						KeyPicker.Mode == "Hold"
+						and KeyPicker.SyncToggleState
+						and ParentObj.Type == "Toggle"
+						and inputMatchesKey(Input)
+					then
+						ParentObj:SetValue(false)
+					end
+
 					KeyPicker:Update()
 				end
 			end))
@@ -4530,11 +4545,11 @@ return LPH_NO_VIRTUALIZE(function()
 		Library:RefreshInfoLogger()
 
 		local KeybindOuter = Library:Create("Frame", {
-			AnchorPoint = Vector2.new(0, 0.5),
+			AnchorPoint = Vector2.new(0, 0),
 			BorderColor3 = Color3.new(0, 0, 0),
-			Position = UDim2.new(0, 10, 0.5, 0),
+			Position = UDim2.new(0, 10, 0, 10),
 			Size = UDim2.new(0, 210, 0, 20),
-			Visible = false,
+			Visible = true,
 			ZIndex = 100,
 			Parent = ScreenGui,
 		})
@@ -4571,7 +4586,7 @@ return LPH_NO_VIRTUALIZE(function()
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextSize = 14,
 			TextColor3 = Library.AccentColor,
-			Text = "Keybind List",
+			Text = "Active Scripts",
 			ZIndex = 104,
 			Parent = KeybindInner,
 		})
@@ -84146,7 +84161,12 @@ function GameTab.initLocalCharacterSection(groupbox)
 		Default = false,
 	})
 
-	flyToggle:AddKeyPicker("FlyKeybind", { Default = "N/A", SyncToggleState = true, Text = "Fly" })
+	flyToggle:AddKeyPicker("FlyKeybind", {
+		Default = "N/A",
+		LockedMode = "Hold",
+		SyncToggleState = true,
+		Text = "Fly",
+	})
 
 	local flyDepBox = groupbox:AddDependencyBox()
 
