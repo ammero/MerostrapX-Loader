@@ -79455,7 +79455,7 @@ PlayerESP.update = LPH_NO_VIRTUALIZE(function(self)
 	end
 
 	if Configuration.expectToggleValue("InfoSpoofing") and Configuration.expectToggleValue("SpoofOtherPlayers") then
-		playerName = "Linoria V2 On Top"
+		playerName = "Merostrap On Top"
 	end
 
 	self.label = playerName
@@ -84782,7 +84782,7 @@ function GameTab.initInfoSpoofingSection(groupbox)
 
 	isDepBox:AddInput("SpoofedDateString", {
 		Text = "Spoofed Date String",
-		Default = "Linoria, 1970 CE",
+		Default = "Merostrap, 1970 CE",
 		Finished = true,
 		Callback = Spoofing.sds,
 	})
@@ -84804,7 +84804,7 @@ function GameTab.initInfoSpoofingSection(groupbox)
 
 	isDepBox:AddInput("SpoofedFirstName", {
 		Text = "Spoofed First Name",
-		Default = "Linoria V2",
+		Default = "Merostrap",
 		Finished = true,
 		Callback = refreshHandler,
 	})
@@ -84825,7 +84825,7 @@ function GameTab.initInfoSpoofingSection(groupbox)
 
 	isDepBox:AddInput("SpoofedServerName", {
 		Text = "Spoofed Server Name",
-		Default = "Linoria V2",
+		Default = "Merostrap",
 		Finished = true,
 		Callback = refreshHandler,
 	})
@@ -86852,11 +86852,11 @@ local onIndex = LPH_NO_VIRTUALIZE(function(...)
 
 		if isA(self, "Player") then
 			if index == "DisplayName" then
-				return "Linoria V2 On Top"
+				return "Merostrap On Top"
 			end
 
 			if index == "Name" then
-				return "Linoria V2 On Top"
+				return "Merostrap On Top"
 			end
 
 			if index == "UserId" then
@@ -86930,7 +86930,7 @@ local onNameCall = LPH_NO_VIRTUALIZE(function(...)
 			end
 
 			if args[2] == "FirstName" then
-				return foreign and "Linoria V2" or Configuration.expectOptionValue("SpoofedFirstName")
+				return foreign and "Merostrap" or Configuration.expectOptionValue("SpoofedFirstName")
 			end
 
 			if args[2] == "LastName" then
@@ -86942,7 +86942,7 @@ local onNameCall = LPH_NO_VIRTUALIZE(function(...)
 					.. " "
 					.. Configuration.expectOptionValue("SpoofedLastName")
 
-				return foreign and "Linoria V2 On Top" or characterName
+				return foreign and "Merostrap On Top" or characterName
 			end
 
 			if args[2] == "Guild" then
