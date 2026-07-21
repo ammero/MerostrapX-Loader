@@ -2335,7 +2335,7 @@ return LPH_NO_VIRTUALIZE(function()
 
 			local KeyPicker = {
 				Value = Info.Default,
-				Toggled = false,
+				Toggled = Info.DefaultState or false,
 				Mode = Info.Mode or "Toggle", -- Always, Toggle, Hold
 				Type = "KeyPicker",
 				Callback = Info.Callback or function(Value) end,
@@ -2508,9 +2508,9 @@ return LPH_NO_VIRTUALIZE(function()
 
 				local State = KeyPicker:GetState()
 
-				ContainerLabel.Text = string.format("[%s] %s (%s)", KeyPicker.Value, Info.Text, KeyPicker.Mode)
+				ContainerLabel.Text = string.format("%s  [%s]", Info.Text, KeyPicker.Value)
 
-				ContainerLabel.Visible = true
+				ContainerLabel.Visible = State
 				ContainerLabel.TextColor3 = State and Library.AccentColor or Library.FontColor
 
 				Library.RegistryMap[ContainerLabel].Properties.TextColor3 = State and "AccentColor" or "FontColor"
@@ -4530,11 +4530,11 @@ return LPH_NO_VIRTUALIZE(function()
 		Library:RefreshInfoLogger()
 
 		local KeybindOuter = Library:Create("Frame", {
-			AnchorPoint = Vector2.new(0, 0.5),
+			AnchorPoint = Vector2.new(0, 0),
 			BorderColor3 = Color3.new(0, 0, 0),
-			Position = UDim2.new(0, 10, 0.5, 0),
+			Position = UDim2.new(0, 10, 0, 10),
 			Size = UDim2.new(0, 210, 0, 20),
-			Visible = false,
+			Visible = true,
 			ZIndex = 100,
 			Parent = ScreenGui,
 		})
@@ -4571,7 +4571,7 @@ return LPH_NO_VIRTUALIZE(function()
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextSize = 14,
 			TextColor3 = Library.AccentColor,
-			Text = "Keybind List",
+			Text = "Active Hotkeys",
 			ZIndex = 104,
 			Parent = KeybindInner,
 		})
@@ -81846,13 +81846,14 @@ function LycorisTab.initUISettingsSection(groupbox)
 
 	menuBindLabel:AddKeyPicker("MenuKeybind", { Default = "LeftAlt", NoUI = true, Text = "Menu Keybind" })
 
-	local keybindFrameLabel = groupbox:AddLabel("Keybind List Bind")
+	local keybindFrameLabel = groupbox:AddLabel("Active Hotkeys Overlay Bind")
 
 	keybindFrameLabel:AddKeyPicker("KeybindList", {
-		Default = "N/A",
-		Mode = "Off",
+		Default = "Home",
+		DefaultState = true,
+		Mode = "Toggle",
 		NoUI = true,
-		Text = "Keybind List",
+		Text = "Active Hotkeys Overlay",
 		Callback = function(Value)
 			Library.KeybindFrame.Visible = Value
 		end,
